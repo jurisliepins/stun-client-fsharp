@@ -1,1 +1,1 @@
-# stun-client-fsharp
+# STUN.Client.FSharp

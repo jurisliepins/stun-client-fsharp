@@ -9,7 +9,7 @@ module STUNClient =
     let private createTxId (): byte [] =
         Guid.NewGuid().ToByteArray()
     
-    let private validateTxId
+    let private compareTxIds
         (requestTxId:  byte [])
         (responseTxId: byte []): bool =
         ((Array.compareWith
@@ -40,7 +40,7 @@ module STUNClient =
         (responseTxId: byte [])
         (_:            STUNAttribute list)
         (nextFn:       unit -> STUNStateResult): STUNStateResult =
-        if not (validateTxId requestTxId responseTxId) then
+        if not (compareTxIds requestTxId responseTxId) then
             StateFailure(BadTransactionId)
         else
             nextFn ()
@@ -49,7 +49,7 @@ module STUNClient =
         (requestTxId:  byte [])
         (responseTxId: byte [])
         (attributes:   STUNAttribute list): STUNStateResult =
-        if not (validateTxId requestTxId responseTxId) then
+        if not (compareTxIds requestTxId responseTxId) then
             StateFailure(BadTransactionId)
         else
             match (attributes

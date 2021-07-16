@@ -29,7 +29,7 @@ module STUNParser =
             | AddressFamily.InterNetwork   -> writer.Write(1uy)
             | AddressFamily.InterNetworkV6 -> writer.Write(2uy)
             | _ ->
-                raise (STUNException(sprintf "Address family '%A' is not supported" endpoint.AddressFamily))
+                raise (STUNParsingException(sprintf "Address family '%A' is not supported" endpoint.AddressFamily))
             writer.Write(uint16 endpoint.Port)
             writer.Write(endpoint.Address.GetAddressBytes())
         | UsernameAttribute text
@@ -44,7 +44,7 @@ module STUNParser =
         | MessageIntegrityAttribute
         | ReflectedFromAttribute ->
             raise (
-                STUNException(
+                STUNParsingException(
                     sprintf
                         "Write for '%A', '%A' and '%A' is not supported"
                         MessageIntegrityAttribute
@@ -72,14 +72,14 @@ module STUNParser =
                 | 1uy -> IPAddress(reader.ReadBytes(4))
                 | 2uy -> IPAddress(reader.ReadBytes(16))
                 | _ -> 
-                    raise (STUNException (sprintf "Unsupported IP family '%d'" ipFamily))
+                    raise (STUNParsingException (sprintf "Unsupported IP family '%d'" ipFamily))
             match attributeType with
             | 1us -> MappedAddressAttribute   (IPEndPoint(address, (int port))) |> Some
             | 2us -> ResponseAddressAttribute (IPEndPoint(address, (int port))) |> Some
             | 4us -> SourceAddressAttribute   (IPEndPoint(address, (int port))) |> Some
             | 5us -> ChangedAddressAttribute  (IPEndPoint(address, (int port))) |> Some
             | _ -> 
-                raise (STUNException (sprintf "Unknown attribute type '%d'" attributeType))
+                raise (STUNParsingException (sprintf "Unknown attribute type '%d'" attributeType))
         | 3us ->
             reader.BaseStream.Position <- reader.BaseStream.Position + 3L
             let packedByte = reader.ReadByte()
@@ -91,10 +91,10 @@ module STUNParser =
             | 6us -> UsernameAttribute(Encoding.ASCII.GetString(reader.ReadBytes(int attributeLength))) |> Some
             | 7us -> PasswordAttribute(Encoding.ASCII.GetString(reader.ReadBytes(int attributeLength))) |> Some
             | _ -> 
-                raise (STUNException (sprintf "Unknown attribute type '%d'" attributeType))
+                raise (STUNParsingException (sprintf "Unknown attribute type '%d'" attributeType))
         | 8us | 9us | 11us ->
             raise (
-                STUNException(
+                STUNParsingException(
                     sprintf
                         "Read for '%A', '%A' and '%A' is not supported"
                         MessageIntegrityAttribute
@@ -156,7 +156,7 @@ module STUNParser =
         | 0x0102us -> SharedSecretResponse     (parseMessage ())
         | 0x0112us -> SharedSecretErrorResponse(parseMessage ())
         | messageType -> 
-            raise (STUNException (sprintf "Unknown message type '%d'" messageType))
+            raise (STUNParsingException (sprintf "Unknown message type '%d'" messageType))
             
     let writeMessageBytes (message: STUNMessage): byte [] =
         use memoryStream = new MemoryStream()

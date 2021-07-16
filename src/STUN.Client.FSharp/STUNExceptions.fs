@@ -1,3 +1,3 @@
 ﻿namespace STUN.Client.FSharp
 
-exception STUNException of string
+exception STUNParsingException of string

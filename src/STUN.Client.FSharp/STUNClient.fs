@@ -22,8 +22,8 @@ module STUNClient =
         (requestMessage:       STUNMessage)
         (bindingResponse:      byte [] -> STUNAttribute list -> STUNStateResult)
         (bindingErrorResponse: byte [] -> STUNAttribute list -> STUNStateResult)
-        (writeFailure:         unit -> STUNStateResult)
-        (readFailure:          unit -> STUNStateResult): STUNStateResult =
+        (writeFailure:         STUNQueryError -> STUNStateResult)
+        (readFailure:          STUNQueryError -> STUNStateResult): STUNStateResult =
         let queryResult = sendQuery requestMessage
         match queryResult with
         | QuerySuccess responseMessage ->
@@ -32,8 +32,8 @@ module STUNClient =
             | BindingErrorResponse(responseTxId, attributes) -> bindingErrorResponse responseTxId attributes
             | _ ->
                 StateFailure(BadResponse)
-        | QueryWriteFailure _ -> writeFailure ()
-        | QueryReadFailure  _ -> readFailure  ()
+        | QueryWriteFailure error -> writeFailure error
+        | QueryReadFailure  error -> readFailure  error
 
     let bindingResponse
         (requestTxId:  byte [])
@@ -93,12 +93,12 @@ module STUNClient =
         (attributes:   STUNAttribute list): STUNStateResult =
         bindingErrorResponse requestTxId responseTxId attributes
         
-    and private mappedAddressStateWriteFailure () =
-        StateFailure(RequestFailure "") // TODO: !
+    and private mappedAddressStateWriteFailure (error: STUNQueryError): STUNStateResult =
+        StateFailure(error)
         
-    and private mappedAddressStateReadFailure () =
-        StateFailure(ResponseFailure "") // TODO: !
-        
+    and private mappedAddressStateReadFailure (error: STUNQueryError): STUNStateResult =
+        StateFailure(error)
+            
     and private mappedAddressState
         (sendQuery:      STUNMessage -> STUNQueryResult)
         (requestTxId:    byte [])
@@ -120,58 +120,180 @@ module STUNClient =
                 writeFailure
                 readFailure
 
+    and private sameAddressStateBindingResponse
+        (requestTxId:    byte [])
+        (responseTxId:   byte [])
+        (attributes:     STUNAttribute list)
+        (localEndpoint:  IPEndPoint)
+        (publicEndpoint: IPEndPoint): STUNStateResult =
+        let handleResponse () =
+            StateSuccess(OpenInternet, localEndpoint, publicEndpoint)
+        bindingResponse requestTxId responseTxId attributes handleResponse
+    
+    and private sameAddressStateBindingErrorResponse
+        (requestTxId:  byte [])
+        (responseTxId: byte [])
+        (attributes:   STUNAttribute list): STUNStateResult =
+        bindingErrorResponse requestTxId responseTxId attributes
+
+    and private sameAddressStateWriteFailure (error: STUNQueryError): STUNStateResult =
+        StateFailure(error)
+        
+    and private sameAddressStateReadFailure
+        (localEndpoint:  IPEndPoint)
+        (publicEndpoint: IPEndPoint): STUNQueryError -> STUNStateResult =
+        let handleFailure (_: STUNQueryError) =
+            StateSuccess(SymmetricUDPFirewall, localEndpoint, publicEndpoint)
+        handleFailure
+        
     and private sameAddressState
         (sendQuery:      STUNMessage -> STUNQueryResult)
         (requestTxId:    byte [])
         (localEndpoint:  IPEndPoint)
-        (publicEndpoint: IPEndPoint) =
-        StateSuccess
+        (publicEndpoint: IPEndPoint): STUNStateResult =
+        let requestMessage = BindingRequest(requestTxId, [ChangeRequestAttribute(true, true)])
+        
+        let bindingResponse      responseTxId attributes = sameAddressStateBindingResponse requestTxId responseTxId attributes localEndpoint publicEndpoint
+        let bindingErrorResponse responseTxId attributes = sameAddressStateBindingErrorResponse requestTxId responseTxId attributes
 
+        let writeFailure = sameAddressStateWriteFailure
+        let readFailure  = sameAddressStateReadFailure localEndpoint publicEndpoint
+
+        handleStateTransition
+                sendQuery
+                requestMessage
+                bindingResponse
+                bindingErrorResponse
+                writeFailure
+                readFailure
+
+    and private changeAddressStateBindingResponse
+        (requestTxId:    byte [])
+        (responseTxId:   byte [])
+        (attributes:     STUNAttribute list)
+        (localEndpoint:  IPEndPoint)
+        (publicEndpoint: IPEndPoint): STUNStateResult =
+        let handleResponse () =
+            StateSuccess(FullCone, localEndpoint, publicEndpoint)
+        bindingResponse requestTxId responseTxId attributes handleResponse
+    
+    and private changeAddressStateBindingErrorResponse
+        (requestTxId:  byte [])
+        (responseTxId: byte [])
+        (attributes:   STUNAttribute list): STUNStateResult =
+        bindingErrorResponse requestTxId responseTxId attributes
+    
+    and private changeAddressStateWriteFailure (error: STUNQueryError): STUNStateResult =
+        StateFailure(error)
+    
+    and private changeAddressStateReadFailure
+        (sendQuery:      STUNMessage -> STUNQueryResult)
+        (requestTx:      byte [])
+        (localEndpoint:  IPEndPoint)
+        (publicEndpoint: IPEndPoint) =
+        let handleResponse (_: STUNQueryError) =
+            executeStates sendQuery (MappedAddressState(requestTx, localEndpoint, (Some publicEndpoint)))
+        handleResponse
+    
     and private changeAddressState
         (sendQuery:      STUNMessage -> STUNQueryResult)
         (requestTxId:    byte [])
         (localEndpoint:  IPEndPoint)
         (publicEndpoint: IPEndPoint) =
-        StateSuccess
+        let requestMessage = BindingRequest(requestTxId, [ChangeRequestAttribute(true, true)])
 
+        let bindingResponse      responseTxId attributes = changeAddressStateBindingResponse requestTxId responseTxId attributes localEndpoint publicEndpoint
+        let bindingErrorResponse responseTxId attributes = changeAddressStateBindingErrorResponse requestTxId responseTxId attributes
+
+        let writeFailure = changeAddressStateWriteFailure
+        let readFailure  = changeAddressStateReadFailure sendQuery requestTxId localEndpoint publicEndpoint
+        
+        handleStateTransition
+                sendQuery
+                requestMessage
+                bindingResponse
+                bindingErrorResponse
+                writeFailure
+                readFailure
+
+    and private changePortStateBindingResponse
+        (requestTxId:    byte [])
+        (responseTxId:   byte [])
+        (attributes:     STUNAttribute list)
+        (localEndpoint:  IPEndPoint)
+        (publicEndpoint: IPEndPoint): STUNStateResult =
+        let handleResponse () =
+            StateSuccess(RestrictedCone, localEndpoint, publicEndpoint)
+        bindingResponse requestTxId responseTxId attributes handleResponse
+    
+    and private changePortStateBindingErrorResponse
+        (requestTxId:  byte [])
+        (responseTxId: byte [])
+        (attributes:   STUNAttribute list): STUNStateResult =
+        bindingErrorResponse requestTxId responseTxId attributes
+    
+    and private changePortStateWriteFailure (error: STUNQueryError): STUNStateResult = 
+        StateFailure(error)
+    
+    and private changePortStateReadFailure
+        (localEndpoint:  IPEndPoint)
+        (publicEndpoint: IPEndPoint): STUNQueryError -> STUNStateResult =
+        let handleResponse (_: STUNQueryError) =
+            StateSuccess(PortRestrictedCone, localEndpoint, publicEndpoint)
+        handleResponse
+    
     and private changePortState
         (sendQuery:      STUNMessage -> STUNQueryResult)
         (requestTxId:    byte [])
         (localEndpoint:  IPEndPoint)
         (publicEndpoint: IPEndPoint) =
-        StateSuccess
+        let requestMessage = BindingRequest(requestTxId, [ChangeRequestAttribute(false, true)])
+
+        let bindingResponse      responseTxId attributes = changePortStateBindingResponse requestTxId responseTxId attributes localEndpoint publicEndpoint
+        let bindingErrorResponse responseTxId attributes = changePortStateBindingErrorResponse requestTxId responseTxId attributes
+
+        let writeFailure = changePortStateWriteFailure
+        let readFailure  = changePortStateReadFailure localEndpoint publicEndpoint
+        
+        handleStateTransition
+                sendQuery
+                requestMessage
+                bindingResponse
+                bindingErrorResponse
+                writeFailure
+                readFailure
         
     and executeStates (sendQuery: STUNMessage -> STUNQueryResult) (state: STUNState) =
         // Mapped-Address State
-        //  * StateSuccess -> 
+        //  * Success -> 
         //      * Public IP same as local IP -> 
         //          Same-Address State
-        //              * StateSuccess -> OpenInternet
-        //              * StateFailure -> 
-        //                  * ResponseTimeoutError -> SymmetricUDPFirewall
-        //                  * Otherwise            -> BadResponse
+        //              * Success -> OpenInternet
+        //              * Failure -> 
+        //                  * ResponseFailure -> SymmetricUDPFirewall
+        //                  * Otherwise       -> BadResponse
         //      * Public IP not same as local IP -> 
         //          Change-Address State
-        //              * StateSuccess  -> FullCone
-        //              * StateFailure -> 
-        //                  * ResponseTimeoutError -> 
+        //              * Success -> FullCone
+        //              * Failure -> 
+        //                  * ResponseFailure -> 
         //                      Mapped-Address State
-        //                          * StateSuccess -> 
+        //                          * Success -> 
         //                              * Public IP same as public IP returned in previous request ->
         //                                  Change-Port State
-        //                                      * StateSuccess -> RestrictedCone
-        //                                      * StateFailure -> PortRestrictedCone
+        //                                      * Success -> RestrictedCone
+        //                                      * Failure -> PortRestrictedCone
         //                              * Public IP not same as public IP returned in previous request -> Symmetric
-        //                          * StateFailure -> BadResponse
+        //                          * Failure -> BadResponse
         //                  * Otherwise -> BadResponse
-        //  * StateFailure -> 
-        //      * ResponseTimeout -> ResponseTimeout (UDP blocked)
+        //  * Failure -> 
+        //      * ResponseFailure -> ResponseFailure (UDP blocked)
         //      * Otherwise       -> BadResponse
         match state with
         | MappedAddressState(requestTxId, localEndpoint, publicEndpoint) -> mappedAddressState sendQuery requestTxId localEndpoint publicEndpoint
-//        | SameAddressState  (requestTxId, localEndpoint, publicEndpoint) -> sameAddressState   sendQuery requestTxId localEndpoint publicEndpoint
-//        | ChangeAddressState(requestTxId, localEndpoint, publicEndpoint) -> changeAddressState sendQuery requestTxId localEndpoint publicEndpoint
-//        | ChangePortState   (requestTxId, localEndpoint, publicEndpoint) -> changePortState    sendQuery requestTxId localEndpoint publicEndpoint
+        | SameAddressState  (requestTxId, localEndpoint, publicEndpoint) -> sameAddressState   sendQuery requestTxId localEndpoint publicEndpoint
+        | ChangeAddressState(requestTxId, localEndpoint, publicEndpoint) -> changeAddressState sendQuery requestTxId localEndpoint publicEndpoint
+        | ChangePortState   (requestTxId, localEndpoint, publicEndpoint) -> changePortState    sendQuery requestTxId localEndpoint publicEndpoint
 
     let execute
         (socket:         Socket)

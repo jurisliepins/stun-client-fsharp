@@ -23,7 +23,7 @@ module STUNSocket =
                     let readResult = Socket.receiveFrom buffer 0 count SocketFlags.None this 
                     readResult |> socketResult
                 else 
-                    Error(exn "Poll on socket was not successful")
+                    Error(exn "Polling socket timed out")
             | Error exn -> Error exn 
         
         member this.Write(buffer: byte [], count: int, endpoint: IPEndPoint) =
@@ -35,12 +35,12 @@ module STUNSocket =
             let readBuffer = Array.zeroCreate defaultBufferLength
             match socket.Read(readBuffer, readBuffer.Length) with
             | Ok      _ -> QuerySuccess(readBuffer |> STUNParser.readMessageBytes) 
-            | Error exn -> QueryReadFailure(ResponseFailure exn.Message)
+            | Error exn -> QueryReadFailure(ResponseFailure exn)
         
         let handleRequest () =
             let writeBuffer = requestMessage |> STUNParser.writeMessageBytes
             match socket.Write(writeBuffer, writeBuffer.Length, serverEndpoint) with 
             | Ok      _ -> handleResponse ()
-            | Error exn -> QueryWriteFailure(RequestFailure exn.Message)
+            | Error exn -> QueryReadFailure(RequestFailure exn)
         
         handleRequest ()

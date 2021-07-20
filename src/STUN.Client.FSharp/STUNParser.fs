@@ -168,3 +168,9 @@ module STUNParser =
         use memoryStream = new MemoryStream(message, 0, message.Length)
         use binaryReader = new STUNBinaryReader(memoryStream)
         readMessage binaryReader
+        
+    let tryWriteMessageBytes (message: STUNMessage): Result<byte [], exn> =
+        tryWith message writeMessageBytes
+
+    let tryReadMessageBytes (message: byte []): Result<STUNMessage, exn> =
+        tryWith message readMessageBytes 

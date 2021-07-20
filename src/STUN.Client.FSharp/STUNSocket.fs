@@ -34,13 +34,18 @@ module STUNSocket =
         let handleResponse () =
             let readBuffer = Array.zeroCreate defaultBufferLength
             match socket.Read(readBuffer, readBuffer.Length) with
-            | Ok      _ -> QuerySuccess(readBuffer |> STUNParser.readMessageBytes) 
+            | Ok _ ->
+                match readBuffer |> STUNParser.tryReadMessageBytes with
+                | Ok responseMessage -> QuerySuccess(responseMessage)
+                | Error _            -> QueryReadFailure(BadResponse) 
             | Error exn -> QueryReadFailure(ResponseFailure exn)
         
         let handleRequest () =
-            let writeBuffer = requestMessage |> STUNParser.writeMessageBytes
-            match socket.Write(writeBuffer, writeBuffer.Length, serverEndpoint) with 
-            | Ok      _ -> handleResponse ()
-            | Error exn -> QueryReadFailure(RequestFailure exn)
-        
+            match requestMessage |> STUNParser.tryWriteMessageBytes with
+            | Ok writeBuffer -> 
+                match socket.Write(writeBuffer, writeBuffer.Length, serverEndpoint) with 
+                | Ok      _ -> handleResponse ()
+                | Error exn -> QueryReadFailure(RequestFailure exn)
+            | Error _ -> QueryReadFailure(BadRequest)
+            
         handleRequest ()

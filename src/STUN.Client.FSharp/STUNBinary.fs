@@ -7,9 +7,10 @@ type STUNBinaryReader(stream: Stream) =
     inherit BinaryReader(stream)
 
     member private this.ReadNetworkBytes(count: int) = 
+        let bytes = base.ReadBytes(count)
         if BitConverter.IsLittleEndian then
-            Array.Reverse(base.ReadBytes(count))
-        base.ReadBytes(count)
+            Array.Reverse(bytes)
+        bytes
 
     override this.ReadInt16() = 
         BitConverter.ToInt16(this.ReadNetworkBytes(sizeof<int16>), 0);

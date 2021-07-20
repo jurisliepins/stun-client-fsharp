@@ -6,16 +6,6 @@ open System.Net.Sockets
 
 [<RequireQualifiedAccess>]
 module STUNClient =
-    let private createTxId (): byte [] =
-        Guid.NewGuid().ToByteArray()
-    
-    let private compareTxIds
-        (requestTxId:  byte [])
-        (responseTxId: byte []): bool =
-        ((Array.compareWith
-            (fun (left: byte) (right: byte) -> left.CompareTo(right))
-            requestTxId
-            responseTxId) <> 0)
     
     let private handleStateTransition
         (sendQuery:            STUNMessage -> STUNQueryResult)
@@ -35,6 +25,14 @@ module STUNClient =
         | QueryWriteFailure error -> writeFailure error
         | QueryReadFailure  error -> readFailure  error
 
+    let private compareTxIds
+        (requestTxId:  byte [])
+        (responseTxId: byte []): bool =
+        ((Array.compareWith
+            (fun (left: byte) (right: byte) -> left.CompareTo(right))
+            requestTxId
+            responseTxId) = 0)
+    
     let bindingResponse
         (requestTxId:  byte [])
         (responseTxId: byte [])
@@ -295,7 +293,10 @@ module STUNClient =
         | ChangeAddressState(requestTxId, localEndpoint, publicEndpoint) -> changeAddressState sendQuery requestTxId localEndpoint publicEndpoint
         | ChangePortState   (requestTxId, localEndpoint, publicEndpoint) -> changePortState    sendQuery requestTxId localEndpoint publicEndpoint
 
-    let execute
+    let createTxId (): byte [] =
+        Guid.NewGuid().ToByteArray()
+    
+    let query
         (socket:         Socket)
         (serverEndpoint: IPEndPoint): STUNStateResult =
         let requestTxId = createTxId ()
@@ -303,9 +304,37 @@ module STUNClient =
         let nextState   = MappedAddressState(requestTxId, (socket.LocalEndPoint :?> IPEndPoint), None)
         executeStates sendQuery nextState
 
-    let asyncExecute
+    let asyncQuery
         (socket:         Socket)
         (serverEndpoint: IPEndPoint): Async<STUNStateResult> =
         async {
-            return execute socket serverEndpoint
+            return query socket serverEndpoint
+        }
+        
+    let private createSocket (): Result<Socket,exn> =
+        Socket.create AddressFamily.InterNetwork SocketType.Dgram ProtocolType.Udp
+
+    let private reuseSocket (socket: Socket): Result<Socket,exn> = 
+        Socket.setSocketOptionBool SocketOptionLevel.Socket SocketOptionName.ReuseAddress true socket
+
+    let private bindSocket (port: int) (socket: Socket): Result<Socket,exn> = 
+        Socket.bind (IPEndPoint(IPAddress.Any, port)) socket
+
+    let private closeSocket (socket: Socket): Result<Socket,exn> =
+        Socket.close socket
+
+    let queryWithDefaultSocket (serverEndpoint: IPEndPoint): Result<STUNStateResult, exn> =
+        match createSocket ()
+            |> Result.bind reuseSocket
+            |> Result.bind (bindSocket 0) with
+        | Ok socket ->
+            let result = query socket serverEndpoint
+            match closeSocket socket with
+            | Ok _      -> Ok result
+            | Error exn -> Error exn 
+        | Error exn -> Error exn
+        
+    let asyncQueryWithDefaultSocket (serverEndpoint: IPEndPoint): Async<Result<STUNStateResult, exn>> =
+        async {
+            return queryWithDefaultSocket serverEndpoint
         }

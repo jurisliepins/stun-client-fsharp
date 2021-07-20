@@ -69,6 +69,8 @@ type STUNQueryError =
     | Unknown
     /// Server responded with an error, see ErrorCode and error phrase.
     | ServerError of errorCode: ErrorCode * errorMessage: string
+    /// Indicated that the client tried to write bad data. 
+    | BadRequest
     /// Indicates that the server responded with bad data.
     | BadResponse
     /// Indicates that the server responded with a message that contains a different transaction ID.
@@ -77,6 +79,16 @@ type STUNQueryError =
     | RequestFailure of exn
     /// Indicates that the server didn't respond.
     | ResponseFailure of exn
+    with
+        override this.ToString() =
+            match this with
+            | Unknown              -> "Unknown"
+            | ServerError        _ -> "ServerError" 
+            | BadRequest           -> "BadRequest"
+            | BadResponse          -> "BadResponse"
+            | BadTransactionId     -> "BadTransactionId"
+            | RequestFailure   exn -> (sprintf "RequestFailure - %s"  exn.Message)
+            | ResponseFailure  exn -> (sprintf "ResponseFailure - %s" exn.Message)
             
 type STUNQueryResult = 
     | QuerySuccess      of STUNMessage

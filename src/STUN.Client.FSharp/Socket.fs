@@ -7,16 +7,11 @@ open System.Collections
 [<RequireQualifiedAccess>]
 module Socket =
 
-    let private tryWith (fn: unit -> 'a): Result<'a,exn> =
-        try 
-            fn () |> Ok 
-        with exn -> exn |> Error
+    let private tryWith fn =
+        try fn () |> Ok with exn -> exn |> Error
 
-    let private tryWithSocket (fn: unit -> unit, socket: Socket): Result<Socket, exn> =
-        try 
-            fn ()
-            Ok socket 
-        with exn -> Error exn
+    let private tryWithSocket fn socket =
+        try fn (); socket |> Ok with exn -> Error exn
     
     let create
         (addressFamily: AddressFamily)
@@ -24,22 +19,22 @@ module Socket =
         (protocolType:  ProtocolType): Result<Socket, exn> = 
         let create () =
             new Socket(addressFamily, socketType, protocolType)
-        create |> tryWith
+        tryWith create 
 
     let bind (localEndpoint: EndPoint) (socket: Socket): Result<Socket, exn> = 
         let bind () =
             socket.Bind(localEndpoint)
-        (bind, socket) |> tryWithSocket
+        tryWithSocket bind socket
 
     let listen (backlog: int) (socket: Socket): Result<Socket, exn> = 
         let listen () =
             socket.Listen(backlog)
-        (listen, socket) |> tryWithSocket
+        tryWithSocket listen socket
 
     let connect (remoteEndpoint: EndPoint) (socket: Socket): Result<Socket, exn> = 
         let connect () =
             socket.Connect(remoteEndpoint)
-        (connect, socket) |> tryWithSocket
+        tryWithSocket connect socket
 
     let accept (socket: Socket): Result<Socket, exn> =
         let accept () =
@@ -49,12 +44,12 @@ module Socket =
     let shutdown (how: SocketShutdown) (socket: Socket): Result<Socket, exn> =
         let shutdown () =
             socket.Shutdown(how)
-        (shutdown, socket) |> tryWithSocket
+        tryWithSocket shutdown socket
 
     let close (socket: Socket): Result<Socket, exn> =
         let close () =
             socket.Close()
-        (close, socket) |> tryWithSocket
+        tryWithSocket close socket
 
     let getSocketOption
         (optionLevel: SocketOptionLevel)
@@ -62,7 +57,7 @@ module Socket =
         (socket:      Socket): Result<obj, exn> =
         let getSocketOption () =
             socket.GetSocketOption(optionLevel, optionName)
-        getSocketOption |> tryWith
+        tryWith getSocketOption
 
     let setSocketOption
         (optionLevel: SocketOptionLevel)
@@ -71,7 +66,7 @@ module Socket =
         (socket:      Socket): Result<Socket, exn> =
         let setSocketOption () =
             socket.SetSocketOption(optionLevel, optionName, optionArg)
-        (setSocketOption, socket) |> tryWithSocket
+        tryWithSocket setSocketOption socket 
 
     let setSocketOptionBool
         (optionLevel: SocketOptionLevel)
@@ -80,7 +75,7 @@ module Socket =
         (socket:      Socket): Result<Socket, exn> =
         let setSocketOption () =
             socket.SetSocketOption(optionLevel, optionName, optionArg)
-        (setSocketOption, socket) |> tryWithSocket
+        tryWithSocket setSocketOption socket 
 
     let setSocketOptionInteger
         (optionLevel: SocketOptionLevel)
@@ -89,7 +84,7 @@ module Socket =
         (socket:      Socket): Result<Socket, exn> =
         let setSocketOption () =
             socket.SetSocketOption(optionLevel, optionName, optionArg)
-        (setSocketOption, socket) |> tryWithSocket
+        tryWithSocket setSocketOption socket
 
     let setSocketOptionBytes
         (optionLevel: SocketOptionLevel)
@@ -98,12 +93,12 @@ module Socket =
         (socket:      Socket): Result<Socket, exn> =
         let setSocketOption () =
             socket.SetSocketOption(optionLevel, optionName, optionArg)
-        (setSocketOption, socket) |> tryWithSocket
+        tryWithSocket setSocketOption socket
 
     let setIPProtectionLevel (socket: Socket) (level: IPProtectionLevel): Result<Socket, exn> =
         let setIPProtectionLevel () =
             socket.SetIPProtectionLevel(level)
-        (setIPProtectionLevel, socket) |> tryWithSocket
+        tryWithSocket setIPProtectionLevel socket
 
     let ioControl
         (controlCode: IOControlCode)
@@ -112,12 +107,12 @@ module Socket =
         (socket:      Socket): Result<int, exn> =
         let ioControl () =
             socket.IOControl(controlCode, inValue, outValue)
-        ioControl |> tryWith
+        tryWith ioControl
 
     let poll (microSeconds: int) (mode: SelectMode) (socket: Socket): Result<bool, exn> =
         let poll () =
             socket.Poll(microSeconds, mode)
-        poll |> tryWith
+        tryWith poll
 
     let select
         (checkRead:    IList)
@@ -126,7 +121,7 @@ module Socket =
         (microSeconds: int): Result<unit, exn> =
         let select () =
             Socket.Select(checkRead, checkWrite, checkError, microSeconds)
-        select |> tryWith
+        tryWith select
 
     let receive
         (buffer:      byte [])
@@ -136,7 +131,7 @@ module Socket =
         (socket:      Socket): Result<int, exn> =
         let receive () =
             socket.Receive(buffer, offset, size, socketFlags)
-        receive |> tryWith
+        tryWith receive
     
     let receiveFrom
         (buffer:      byte [])
@@ -147,7 +142,7 @@ module Socket =
         let receiveFrom () =
             let mutable remoteEndpoint = ((IPEndPoint(IPAddress.Any, 0)):> EndPoint)
             socket.ReceiveFrom(buffer, offset, size, socketFlags, &remoteEndpoint), remoteEndpoint
-        receiveFrom |> tryWith
+        tryWith receiveFrom
 
     let send
         (buffer:      byte [])
@@ -157,7 +152,7 @@ module Socket =
         (socket:      Socket): Result<int, exn> =
         let send () =
             socket.Send(buffer, offset, size, socketFlags)
-        send |> tryWith
+        tryWith send
     
     let sendTo
         (buffer:         byte [])
@@ -168,14 +163,14 @@ module Socket =
         (socket:         Socket): Result<int * EndPoint, exn> =
         let sendTo () =
             socket.SendTo(buffer, offset, size, socketFlags, remoteEndpoint), remoteEndpoint
-        sendTo |> tryWith
+        tryWith sendTo
 
     let getPeerName (socket: Socket): Result<EndPoint, exn> =
         let getPeerName () =
             socket.RemoteEndPoint
-        getPeerName |> tryWith
+        tryWith getPeerName
     
     let getHostName (): Result<string, exn> =
         let getHostName () =
             Dns.GetHostName()
-        getHostName |> tryWith
+        tryWith getHostName

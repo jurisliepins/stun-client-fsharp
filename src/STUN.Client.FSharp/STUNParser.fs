@@ -8,12 +8,6 @@ open System.Text
 [<RequireQualifiedAccess>]
 module STUNParser =
     
-    let private tryWith args fn =
-        try
-            fn args |> Ok
-        with
-            | exn -> Error exn
-    
     let private writeAttribute (writer: STUNBinaryWriter) (attribute: STUNAttribute): int64 =
         writer.Write(attribute.ToUInt16())
         let lengthPosition = writer.BaseStream.Position
@@ -169,8 +163,8 @@ module STUNParser =
         use binaryReader = new STUNBinaryReader(memoryStream)
         readMessage binaryReader
         
-    let tryWriteMessageBytes (message: STUNMessage): Result<byte [], exn> =
-        tryWith message writeMessageBytes
+    let tryWith fn  = try fn |> Ok with exn -> Error exn 
+        
+    let tryWriteMessageBytes = writeMessageBytes >> tryWith
 
-    let tryReadMessageBytes (message: byte []): Result<STUNMessage, exn> =
-        tryWith message readMessageBytes 
+    let tryReadMessageBytes = readMessageBytes >> tryWith

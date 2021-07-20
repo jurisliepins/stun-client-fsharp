@@ -4,12 +4,6 @@ module Program =
     open System
     open System.Net
     
-    let private tryWith args fn =
-        try
-            fn args |> Ok
-        with
-            | ex -> Error ex
-    
     let private parseEndpoint (endpoint: string) =
         if String.IsNullOrWhiteSpace(endpoint) then
             raise (Exception "Endpoint must not be empty")
@@ -26,7 +20,7 @@ module Program =
             | _ -> 
                 raise (Exception "Invalid endpoint format")
 
-    let private tryParseEndpoint (endpoint: string) = parseEndpoint |> tryWith endpoint
+    let private tryParseEndpoint (endpoint: string) = try parseEndpoint endpoint |> Ok with exn -> Error exn   
     
     [<EntryPoint>]
     let main _ =

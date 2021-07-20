@@ -20,11 +20,26 @@ module Program =
             | _ -> 
                 raise (Exception "Invalid endpoint format")
 
-    let private tryParseEndpoint (endpoint: string) = try parseEndpoint endpoint |> Ok with exn -> Error exn   
+    let private tryParseEndpoint (endpoint: string) = try parseEndpoint endpoint |> Ok with exn -> Error exn
     
-    [<EntryPoint>]
-    let main _ =
-        match tryParseEndpoint "stun.sovtest.ru:3478" with
+    let private parseCommandLineArgs (args: string []) =
+        if Array.isEmpty args then
+            raise (Exception "Command line args must not be empty")
+        else
+            args |> Array.toList
+                
+    let private tryParseCommandLineArgs (args: string []) = try parseCommandLineArgs args |> Ok with exn -> Error exn
+    
+    let private printUsage () =
+        printfn "Usage: stun-client-fsharp [command] [command-option]"
+        printfn ""
+        printfn "Commands:"
+        printfn "   -h | --help                 Display this help menu."
+        printfn "   -s | --server-endpoint      IPv4 STUN server endpoint."
+        printfn ""
+
+    let private queryServerEndpoint (serverEndpoint: string) =
+        match tryParseEndpoint serverEndpoint with
         | Ok serverEndpoint ->
             let result = STUNClient.queryWithDefaultSocket serverEndpoint
             match result with
@@ -38,6 +53,22 @@ module Program =
                     printfn "Failed while querying the server - %A" queryError
             | Error exn ->
                 printfn "Failed to connect to the server - %A" exn.Message
-        | Error exn ->
-            printfn "Failed to parse server endpoint - %A" exn.Message 
+        | Error _ ->
+            printUsage ()
+        
+    [<EntryPoint>]
+    let main (args: string []): int = 
+        match tryParseCommandLineArgs args with
+        | Ok (command::commandOptions) ->
+            match (command::commandOptions) with
+            | "-h"    ::_
+            | "--help"::_ ->
+                printUsage ()
+            | "-s"               ::serverEndpoint::_
+            | "--server-endpoint"::serverEndpoint::_ ->
+                queryServerEndpoint serverEndpoint                
+            | _ -> 
+                printUsage ()
+        | _ ->
+            printUsage ()
         0

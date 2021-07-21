@@ -30,10 +30,10 @@ module STUNParser =
         | PasswordAttribute text -> writer.Write(Encoding.ASCII.GetBytes(text))
         | ChangeRequestAttribute (changeIp, changePort) ->
             writer.Write(Array.create 3 (new byte ()))
-            let mutable i = 0
-            if changeIp   then i <- i ||| 4
-            if changePort then i <- i ||| 2
-            writer.Write(byte i)
+            let mutable packedByte = 0uy
+            if changeIp   then packedByte <- packedByte ||| 4uy
+            if changePort then packedByte <- packedByte ||| 2uy
+            writer.Write(packedByte)
         | ErrorCodeAttribute _
         | MessageIntegrityAttribute
         | ReflectedFromAttribute ->

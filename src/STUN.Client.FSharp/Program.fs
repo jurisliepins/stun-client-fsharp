@@ -46,13 +46,13 @@ module Program =
             | Ok stateResult -> 
                 match stateResult with
                 | StateSuccess(natType, publicEndpoint, localEndpoint) -> 
-                    printfn "NatType:        %A" natType
-                    printfn "PublicEndpoint: %A" publicEndpoint
-                    printfn "LocalEndpoint:  %A" localEndpoint
+                    printfn $"NatType:        %A{natType}"
+                    printfn $"PublicEndpoint: %A{publicEndpoint}"
+                    printfn $"LocalEndpoint:  %A{localEndpoint}"
                 | StateFailure queryError -> 
-                    printfn "Failed while querying the server - %A" queryError
+                    printfn $"Failed while querying the server - %A{queryError}"
             | Error exn ->
-                printfn "Failed to connect to the server - %A" exn.Message
+                printfn $"Failed to connect to the server - %A{exn.Message}"
         | Error _ ->
             printUsage ()
         

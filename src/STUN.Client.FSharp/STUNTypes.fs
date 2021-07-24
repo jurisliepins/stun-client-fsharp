@@ -87,8 +87,8 @@ type STUNQueryError =
             | BadRequest           -> "BadRequest"
             | BadResponse          -> "BadResponse"
             | BadTransactionId     -> "BadTransactionId"
-            | RequestFailure   exn -> (sprintf "RequestFailure - %s"  exn.Message)
-            | ResponseFailure  exn -> (sprintf "ResponseFailure - %s" exn.Message)
+            | RequestFailure   exn -> $"RequestFailure - %s{exn.Message}"
+            | ResponseFailure  exn -> $"ResponseFailure - %s{exn.Message}"
             
 type STUNQueryResult = 
     | QuerySuccess      of STUNMessage

@@ -330,7 +330,7 @@ module STUNClient =
         | Ok socket ->
             let result = query socket serverEndpoint
             match closeSocket socket with
-            | Ok _      -> Ok result
+            | Ok      _ -> Ok result
             | Error exn -> Error exn 
         | Error exn -> Error exn
         

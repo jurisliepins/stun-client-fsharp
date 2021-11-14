@@ -37,7 +37,7 @@ module STUNSocket =
             | Ok _ ->
                 match readBuffer |> STUNParser.tryReadMessageBytes with
                 | Ok responseMessage -> QuerySuccess(responseMessage)
-                | Error _            -> QueryReadFailure(BadResponse) 
+                | Error            _ -> QueryReadFailure(BadResponse) 
             | Error exn -> QueryReadFailure(ResponseFailure exn)
         
         let handleRequest () =

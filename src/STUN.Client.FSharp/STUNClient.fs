@@ -287,6 +287,9 @@ module STUNClient =
         //  * Failure -> 
         //      * ResponseFailure -> ResponseFailure (UDP blocked)
         //      * Otherwise       -> BadResponse
+        //
+        // Implemented as a state machine with predefined transitions to simplify testing. At the end of the day all we're
+        // doing is sending requests to the server and moving on to the next state based on the response. 
         match state with
         | MappedAddressState(requestTxId, localEndpoint, publicEndpoint) -> mappedAddressState sendQuery requestTxId localEndpoint publicEndpoint
         | SameAddressState  (requestTxId, localEndpoint, publicEndpoint) -> sameAddressState   sendQuery requestTxId localEndpoint publicEndpoint

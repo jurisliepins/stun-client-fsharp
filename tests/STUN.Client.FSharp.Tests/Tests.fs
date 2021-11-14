@@ -27,10 +27,10 @@ type STUNTests(outputHelper: ITestOutputHelper) =
         Assert.True(false, "executing states should have failed")
 
     let executeStatesShouldNotHaveFailed (error: STUNQueryError): unit =
-        Assert.True(false, (sprintf "executing states should not have failed with %A" error))
+        Assert.True(false, $"executing states should not have failed with %A{error}")
     
     let executeStatesShouldReturn (returnType: string): unit =
-        Assert.True(false, (sprintf "executing states should have returned a '%s'" returnType))
+        Assert.True(false, $"executing states should have returned a '%s{returnType}'")
 
     [<Fact>]
     let ``Test UdpBlocked result`` () =
